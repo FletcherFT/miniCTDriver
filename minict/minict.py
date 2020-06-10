@@ -37,18 +37,18 @@ class MiniCTDriver:
 
     def __init__(self, dev, baud=19200, timeout=0.5):
         # Initialise the serial object
-        self.ser = serial.Serial(port=dev,
-                                 baudrate=baud,
-                                 bytesize=serial.EIGHTBITS,
-                                 parity=serial.PARITY_NONE,
-                                 stopbits=serial.STOPBITS_ONE,
-                                 timeout=timeout,
-                                 xonxoff=True,
-                                 rtscts=False,
-                                 write_timeout=None,
-                                 dsrdtr=False,
-                                 inter_byte_timeout=None,
-                                 exclusive=None)
+        self._ser = serial.Serial(port=dev,
+                                  baudrate=baud,
+                                  bytesize=serial.EIGHTBITS,
+                                  parity=serial.PARITY_NONE,
+                                  stopbits=serial.STOPBITS_ONE,
+                                  timeout=timeout,
+                                  xonxoff=True,
+                                  rtscts=False,
+                                  write_timeout=None,
+                                  dsrdtr=False,
+                                  inter_byte_timeout=None,
+                                  exclusive=None)
         # Start a thread for reading values
         self._listener = threading.Thread(target=self._receive_pkt, name="Thread-SerialListener")
         self._running = False  # True if driver has been started
@@ -87,8 +87,8 @@ class MiniCTDriver:
     def start(self):
         """Open serial port and start reading."""
         self._running = True
-        if self.ser.closed:
-            self.ser.open()
+        if self._ser.closed:
+            self._ser.open()
         self._listener.start()
 
     def config(self):
@@ -119,10 +119,10 @@ class MiniCTDriver:
         while self._running:
             try:
                 # if something detected on the serial port
-                if self.ser.in_waiting:
+                if self._ser.in_waiting:
                     # Datagrams are sent with newline delimiting
                     self._lock.acquire()
-                    buff = self.ser.readline()
+                    buff = self._ser.readline()
                     self._lock.release()
                     # Process the buffer into a data packet
                     packet = buff.decode().rstrip()
@@ -152,7 +152,7 @@ class MiniCTDriver:
                 pass
             except ValueError:
                 pass
-        self.ser.close()
+        self._ser.close()
 
     def _parse_packet(self, packet):
         # if it's a single command then process like it's a number
@@ -186,7 +186,7 @@ class MiniCTDriver:
         if len(pkt) < 4 or pkt[-4:] != "\r\n":
             pkt += "\r\n"
         self._lock.acquire()
-        self.ser.write(pkt.encode())
+        self._ser.write(pkt.encode())
         self._lock.release()
 
     def interrupt(self):
@@ -285,13 +285,13 @@ class MiniCTDriver:
 
     def set_baud(self, baud):
         assert baud in [2400, 4800, 9600, 19200, 38400], "Baudrate must be one of [2400, 4800, 9600, 19200, 38400]."
-        if not baud == self.ser.baudrate:
+        if not baud == self._ser.baudrate:
             self.interrupt()
             self._send_pkt("#059;{}".format(baud))
             time.sleep(1)
             self.stop()
             print("Reopening with baudrate: {}".format(baud))
-            self.__init__(self.ser.port, baud, timeout=0.5)
+            self.__init__(self._ser.port, baud, timeout=0.5)
             self.start()
         # self._check_ack("#059;{}".format(baud))
 
